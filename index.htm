@@ -1,0 +1,221 @@
+<html>
+    <head>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <style>
+            @font-face {
+                font-family: 'dot_matrix';
+                src: url('./dotmatri-webfont.woff2') format('woff2'),
+                     url('./dotmatri-webfont.woff') format('woff');
+                font-weight: normal;
+                font-style: normal;
+
+            }
+
+            @font-face {
+                font-family: 'dot_matrix';
+                src: url('./dotmbold-webfont.woff2') format('woff2'),
+                     url('./dotmbold-webfont.woff') format('woff');
+                font-weight: bold;
+                font-style: normal;
+
+            }
+            
+            body {
+                font-family: 'dot_matrix';
+                color: orange;
+                background-color: black; 
+            }
+            
+            .line {
+                background-color: #1c2f2f;
+                font-size: 2.3em;
+                text-align: left;
+                padding-left: 8px;
+                padding-right: 8px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            
+            .timeline {
+                font-weight: bold;
+                background-color: #1c2f2f;
+                font-size: 2.3em;
+                text-align: center;
+                padding-left: 8px;
+                padding-right: 8px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            
+            #minhour {
+                font-size: 2.3em;
+            }
+            
+            #sec {
+                font-size: 2em;
+            }
+            
+            .center {
+              margin: 0;
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              -ms-transform: translate(-50%, -50%);
+              transform: translate(-50%, -50%);
+            }
+            
+            table {
+              margin-left:auto; 
+              margin-right:auto;
+              border: 30px solid #404040;
+              width: 95%
+            }
+        </style>
+        
+        <script>
+            $(document).ready(function() {
+                var departuresData = [{
+                    station: "Edinburgh",
+                    time: "13:54",
+                    expected: "On time",
+                    callingAt: [{
+                        station: "Newcastle",
+                        expected: "14:00"
+                    }, {
+                        station: "Alnmouth for Alnwick",
+                        expected: "14:52"
+                    }, {
+                        station: "Berwick-upon-Tweed",
+                        expected: "15:34"
+                    }, {
+                        station: "Edinburgh",
+                        expected: "16:01"
+                    }]
+                }, {
+                    station: "Newcastle",
+                    time: "14:00",
+                    expected: "Expt 14:05"
+                }, {
+                    station: "Liverpool Lime St",
+                    time: "14:12",
+                    expected: "Expt 14:30"
+                }];
+
+                var nextPassing = false;
+                var passingShowing = true;
+
+                var secondShowing = true;
+
+                // Update the clock
+                var timeInterval = setInterval(function() {
+                    var today = new Date();
+
+                    document.getElementById("minhour").innerHTML = (today.getHours()<10?"0"+today.getHours():today.getHours()) + ":" + (today.getMinutes()<10?"0"+today.getMinutes():today.getMinutes()) + ":";
+                    document.getElementById("sec").innerHTML = (today.getSeconds()<10?"0"+today.getSeconds():today.getSeconds());
+                }, 1000);
+
+                // Update the data
+                var updateData = function() {
+                    $.ajax({
+                        method: "GET",
+                        url: "destinationData.json",
+                        dataType: "json",
+                        success: function(data, status, xhr) {
+                            departuresData = data.services;
+                            nextPassing = data.nextpassing;
+                        },
+                        error: function (xhr, status, error) {
+                            var errorMessage = xhr.status + ': ' + xhr.statusText
+                            console.log('Error - ' + errorMessage);
+                        }
+                    });
+                }
+
+                updateData();
+
+                var dataInterval = setInterval(updateData,10000);
+                var previousMarquee = "";
+                // Update the board
+                var updateBoard = function() {
+                    if (nextPassing == true && passingShowing == true) {
+                        passingShowing = false;
+
+                        $('.line').css('text-align', 'center')
+
+                        document.getElementById("line1").innerHTML = "** PLEASE STAND CLEAR **";
+                        document.getElementById("line2").innerHTML = "The next train is not scheduled";
+                        document.getElementById("line3").innerHTML = "to stop at this platform";
+                    } else if ($.isEmptyObject(departuresData[0])) {
+                        $('.line').css('text-align', 'center')
+
+                        document.getElementById("line1").innerHTML = "<br/>";
+                        document.getElementById("line2").innerHTML = "No trains available at this time";
+                        document.getElementById("line3").innerHTML = "<br/>";
+                    } else {
+                        $('.line').css('text-align', 'left')
+
+                        // Line 1
+                        document.getElementById("line1").innerHTML = '1st '+departuresData[0].time+' '+departuresData[0].station+' <span style="float: right">'+departuresData[0].expected+'</span>';
+
+                        // Line 2
+                        if (departuresData[0].cancelled) {
+                            document.getElementById("line2").innerHTML = departuresData[0].cancelReason;
+                        } else {
+                            var text = departuresData[0].atoc + ' service calling at ';
+
+                            if (departuresData[0].callingAt.length == 0) {
+                                document.getElementById("line2").innerHTML = "This service terminates here";
+                            } else if (departuresData[0].callingAt.length == 1) {
+                                document.getElementById("line2").innerHTML = departuresData[0].atoc + " service calling at " + departuresData[0].callingAt[departuresData[0].callingAt.length - 1].station + " only";
+                            } else {
+                                for (var i = 0; i < departuresData[0].callingAt.length - 1; i++) {
+                                    text += departuresData[0].callingAt[i].station + " (" + departuresData[0].callingAt[i].expected + "), ";
+                                }
+
+                                text = text.slice(0, text.length - 2)+ " and " + departuresData[0].callingAt[departuresData[0].callingAt.length - 1].station + " (" + departuresData[0].callingAt[departuresData[0].callingAt.length - 1].expected + ")";
+
+                                if (previousMarquee != text) {
+                                    previousMarquee = text;
+                                    document.getElementById("line2").innerHTML = "<marquee>" + text + "</marquee>";
+                                }
+                            }
+                        }
+                        // Line 3
+                        var dataIndex = secondShowing?1:2;
+                        console.log($.isEmptyObject(departuresData[2]));
+                        if ($.isEmptyObject(departuresData[1])) {
+                            document.getElementById("line3").innerHTML = "<br/>";
+                        } else if ($.isEmptyObject(departuresData[2])) {
+                           document.getElementById("line3").innerHTML = '2nd '+departuresData[1].time+' '+departuresData[1].station+' <span style="float: right">'+departuresData[1].expected+'</span>';
+                        } else {
+                            document.getElementById("line3").innerHTML = (secondShowing?'2nd ':'3rd ')+departuresData[dataIndex].time+' '+departuresData[dataIndex].station+' <span style="float: right">'+departuresData[dataIndex].expected+'</span>';
+                        }
+                        
+                        secondShowing = !secondShowing;
+
+                        passingShowing = true;
+                    }
+                };
+
+                updateBoard();
+                var boardInterval = setInterval(updateBoard, 30000);
+            });
+        </script>
+    </head>
+    <body>
+        <table class="center">
+            <tr>
+                <td><div class="line" id="line1">1st 13:54 Edinburgh <span style="float: right">On time</span></div></td>
+            </tr>
+            <tr>
+                <td><div class="line" id="line2"><marquee>Calling at Newcastle (14:00), Alnmouth for Alnwick (14:52), Berwick-upon-Tweed (15:34) and Edinburgh (16:01)</marquee></div></td>
+            </tr>
+            <tr>
+                <td><div class="line" id="line3">3rd 14:12 Liverpool Lime St <span style="float: right">Expt 14:30</span></td>
+            </tr>
+            <tr>
+                <td><div class="timeline"><span id="minhour">12:54:</span><span id="sec">00</span></div></td>
+            </tr>
+        </table>
+    </body>
+</html>
